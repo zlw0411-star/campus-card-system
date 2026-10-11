@@ -48,7 +48,9 @@ Maven Central 不可用时加 `-s config/maven-settings-mirror.xml`。开发时�
 
 初版保留于 `v1.0.0-swing` 标签。当前构建也生成 `frontend/target/campus-card-system.jar`，可用 `scripts/start-desktop.ps1` 运行。
 
-金额采用 BigDecimal 与 DECIMAL(12,2)，API 使用十进制字符串；必须为正数且最多两位小数。余额更新与流水插入在同一事务中完成，按用户→卡片顺序加锁；唯一操作编号防止重复提交。网络故障时界面保留原请求，先查询结果再用同一编号重试。管理员不能直接修改余额；停用保留卡片和历史。日期按上海时区解释，结束日期包含当天。
+金额采用 BigDecimal 与 DECIMAL(12,2)，API 使用十进制字符串；必须为正数且最多两位小数。余额更新与流水插入在同一事务中完成，按用户→卡片顺序加锁；唯一操作编号防止重复提交。网络故障或 HTTP 5xx 响应时界面保留原请求，先查询结果再用同一编号重试。管理员不能直接修改余额；停用保留卡片和历史。日期按上海时区解释，结束日期包含当天。
+
+输入错误的原密码会保留当前登录状态并提示错误。退出请求失败时会显示待确认提示，刷新后仍需重试安全退出。当前标签页会保存退出意图与待确认交易请求，交易恢复前核对当前用户归属，刷新后仍沿用原操作编号；不保存密码或登录令牌。交易完成、退出或会话失效时清除待确认请求。浏览器存储不可用时会阻止交易提交并提示重试。
 
 ## 后台测试
 
@@ -68,5 +70,7 @@ mvn -B -ntp verify
 ```
 
 本机可加载已忽略的 `local/test-env.ps1` 设置测试参数。Linux 通过 `xvfb-run -a mvn verify` 验证保留的 Swing 测试。网页 E2E 使用 Playwright 的 headless Chromium，不依赖 computer use；首次运行需在 `web` 目录执行 `npx playwright install chromium` 安装测试浏览器；先用初始化脚本为测试库导入 `-Seed -WebDemo`，保持上述 CC_DB_*=CC_TEST_*，设置 `$env:CC_E2E_URL="http://127.0.0.1:8089"`，执行 `npm --prefix web run test:e2e`。测试框架自动启动和关闭独立的 8089 服务（该端口需空闲），并拒绝正常运行库与其他网址。GitHub Actions 在独立 MySQL 服务上验证并上传网页 JAR。
+
+接口覆盖、页面验收与实际执行结果见 [测试验收报告](web/tests/acceptance-report.md)。
 
 分工边界和接口约定见 `WEB_CONTRACTS.md`；原桌面契约见 `CONTRACTS.md`。四个编码子智能体分别负责持久化、后端、网页前端和测试，统筹负责公共接口、装配、审查和发布。

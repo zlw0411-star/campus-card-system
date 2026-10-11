@@ -149,4 +149,59 @@ describe('API session epoch and uncertain-write handling', () => {
     expect(submissions).toBe(1)
     expect(JSON.parse(submittedBody)).toMatchObject(request)
   })
+
+  it('does not expire the session for a wrong current password, but expires it for AUTH_REQUIRED', async () => {
+    let csrf = 0
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/auth/csrf')) return response({ token: `csrf-${++csrf}`, headerName: 'X-CSRF-TOKEN' })
+      if (url.endsWith('/auth/login')) return response({ id: 7, username: 'student', role: 'USER' })
+      if (url.endsWith('/auth/password')) return response({ code: 'LOGIN_FAILED', message: '原密码错误' }, 401)
+      if (url.endsWith('/auth/me')) return response({ code: 'AUTH_REQUIRED', message: '会话失效' }, 401)
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    const { api } = await freshApi()
+    await api.login('student', 'correct-password')
+
+    await expect(api.changePassword('wrong-password', 'new-password-123')).rejects.toMatchObject({
+      code: 'LOGIN_FAILED', status: 401,
+    })
+    expect(expiredEvents).toEqual([])
+
+    await expect(api.me()).rejects.toMatchObject({ code: 'AUTH_REQUIRED', status: 401 })
+    expect(expiredEvents).toEqual(['campus-session-expired'])
+  })
+
+  it('keeps a committed operation id available to recover after a non-JSON 502 response', async () => {
+    let csrf = 0
+    let committed: { operationId: string; amount: string; balanceAfter: string } | null = null
+    const fetchMock = vi.mocked(fetch)
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/auth/csrf')) return response({ token: `csrf-${++csrf}`, headerName: 'X-CSRF-TOKEN' })
+      if (url.endsWith('/auth/login')) return response({ id: 7, username: 'student', role: 'USER' })
+      if (url.endsWith('/card/recharge')) {
+        const request = JSON.parse(String(init?.body)) as { operationId: string; amount: string }
+        committed = { operationId: request.operationId, amount: request.amount, balanceAfter: '107.25' }
+        return {
+          ok: false,
+          status: 502,
+          json: vi.fn().mockRejectedValue(new SyntaxError('upstream returned html')),
+        } as unknown as Response
+      }
+      if (url.endsWith('/card/operations/operation-502')) return response(committed)
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    const { api } = await freshApi()
+    await api.login('student', 'password-1')
+    const operation = { amount: '7.25', description: '502 recovery', operationId: 'operation-502' }
+
+    await expect(api.recharge(operation)).rejects.toMatchObject({ code: 'SERVER_ERROR', status: 502 })
+    expect(committed).toMatchObject({ operationId: operation.operationId })
+    await expect(api.findOperation(operation.operationId)).resolves.toMatchObject({
+      operationId: operation.operationId, amount: operation.amount, balanceAfter: '107.25',
+    })
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).endsWith('/card/recharge'))).toHaveLength(1)
+  })
 })

@@ -19,8 +19,9 @@ function start() {
   failure.value=''; message.value=''; confirmed.value=false
   if(!moneyInputValid(amount.value)) { failure.value='请输入正数金额，最多两位小数。'; return }
   if(descriptionError.value) { failure.value=descriptionError.value; return }
+  if(!auth.user) { failure.value='登录状态已失效，请重新登录。'; return }
   const request:OperationRequest={amount:amount.value,description:description.value.trim(),operationId:crypto.randomUUID()}
-  operations.pendingMoney={kind:kind.value,request}
+  if(!operations.setPendingMoney({kind:kind.value,request},auth.user.id)) { failure.value='无法安全保存本次交易状态，交易尚未提交。请检查浏览器存储后重试。'; return }
   void writePending()
 }
 async function writePending() {

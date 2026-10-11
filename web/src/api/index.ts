@@ -37,7 +37,7 @@ async function request<T>(path:string,method='GET',body?:unknown,asBlob=false,re
  if(!response.ok) {
   const failure=await response.json().catch(()=>({code:'SERVER_ERROR',message:'服务暂时不可用'}))
   if(response.status===403&&failure.code==='CSRF_INVALID'&&!retried&&method!=='GET'&&epoch===sessionEpoch) { await csrfToken(true); if(epoch!==sessionEpoch)throw new ApiError('SESSION_CHANGED','登录状态已更改，请重新操作'); return request<T>(path,method,body,asBlob,true) }
-  if((response.status===401||failure.code==='USER_DISABLED')&&path!=='/auth/login'&&epoch===sessionEpoch) window.dispatchEvent(new CustomEvent('campus-session-expired'))
+  if(((response.status===401&&failure.code!=='LOGIN_FAILED')||failure.code==='USER_DISABLED')&&path!=='/auth/login'&&epoch===sessionEpoch) window.dispatchEvent(new CustomEvent('campus-session-expired'))
   throw new ApiError(failure.code||'SERVER_ERROR',failure.message||'操作失败，请稍后再试',response.status)
  }
  if(response.status===204) return undefined as T
