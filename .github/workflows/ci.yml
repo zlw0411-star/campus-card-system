@@ -1,4 +1,4 @@
-name: Java CI
+name: Campus card CI
 
 on:
   push:
@@ -24,18 +24,65 @@ jobs:
       CC_TEST_DB_URL: jdbc:mysql://127.0.0.1:3306/campus_card_test?serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
       CC_TEST_DB_USER: root
       CC_TEST_DB_PASSWORD: ci-test-password
+      CC_DB_URL: jdbc:mysql://127.0.0.1:3306/campus_card_test?serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      CC_DB_USER: root
+      CC_DB_PASSWORD: ci-test-password
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Test and build web client
+        working-directory: web
+        run: |
+          npm test
+          npm run build
+
+      - name: Install Playwright Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
           cache: maven
-      - name: Verify all modules
+
+      - name: Verify all Java modules
         run: xvfb-run -a mvn -B verify
+
+      - name: Seed isolated database for browser tests
+        env:
+          MYSQL_PWD: ci-test-password
+        run: |
+          mysql --host=127.0.0.1 --user=root campus_card_test < database/seed.sql
+          mysql --host=127.0.0.1 --user=root campus_card_test < database/demo-web.sql
+
+      - name: Run real-browser UI tests against isolated test server
+        working-directory: web
+        env:
+          CI: 'true'
+          CC_E2E_URL: http://127.0.0.1:8089
+        run: npm run test:e2e
+
       - name: Upload runnable application JAR
         uses: actions/upload-artifact@v4
         with:
-          name: campus-card-system
-          path: frontend/target/campus-card-system.jar
+          name: campus-card-web-server
+          path: server/target/campus-card-web.jar
+          if-no-files-found: error
+
+      - name: Upload web production build
+        uses: actions/upload-artifact@v4
+        with:
+          name: campus-card-web-dist
+          path: web/dist/**
           if-no-files-found: error
