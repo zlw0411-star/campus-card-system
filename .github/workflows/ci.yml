@@ -1,0 +1,41 @@
+name: Java CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci-test-password
+          MYSQL_DATABASE: campus_card_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pci-test-password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    env:
+      CC_TEST_DB_URL: jdbc:mysql://127.0.0.1:3306/campus_card_test?serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      CC_TEST_DB_USER: root
+      CC_TEST_DB_PASSWORD: ci-test-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Verify all modules
+        run: xvfb-run -a mvn -B verify
+      - name: Upload runnable application JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: campus-card-system
+          path: frontend/target/campus-card-system.jar
+          if-no-files-found: error
