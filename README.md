@@ -16,7 +16,7 @@ powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -UseMirror
 powershell -ExecutionPolicy Bypass -File scripts/start.ps1 -Background
 ```
 
-浏览器打开 http://127.0.0.1:8088 。停止服务使用 `scripts/stop.ps1`。不加 `-Background` 则在终端运行。端口可用 `-Port` 指定，默认仅监听本机。
+浏览器打开 http://127.0.0.1:8088 。停止服务使用 `scripts/stop.ps1`，Windows 重新构建前先停止已运行的服务以释放 JAR。不加 `-Background` 则在终端运行。端口可用 `-Port` 指定，默认仅监听本机。
 
 数据库账号有密码时初始化加 `-PromptPassword`，支持 `-HostName/-Port/-User/-Database`。真实数据库配置不提交 Git。环境变量 `CC_DB_URL/CC_DB_USER/CC_DB_PASSWORD` 优先于外置配置，配置文件路径可通过 `-Dcampus.config=绝对路径` 指定。运行账号仅需 SELECT/INSERT/UPDATE，初始化使用具有建表权限的独立账号。
 
@@ -61,10 +61,12 @@ $env:CC_TEST_DB_PASSWORD='test-password'
 $env:CC_DB_URL=$env:CC_TEST_DB_URL
 $env:CC_DB_USER=$env:CC_TEST_DB_USER
 $env:CC_DB_PASSWORD=$env:CC_TEST_DB_PASSWORD
+npm --prefix web ci
 npm --prefix web test
+npm --prefix web run build
 mvn -B -ntp verify
 ```
 
-本机可加载已忽略的 `local/test-env.ps1` 设置测试参数。Linux 通过 `xvfb-run -a mvn verify` 验证保留的 Swing 测试。网页 E2E 使用 Playwright 的 headless Chromium，不依赖 computer use；先用初始化脚本为测试库导入 `-Seed -WebDemo`，保持上述 CC_DB_*=CC_TEST_*，设置 `$env:CC_E2E_URL="http://127.0.0.1:8089"`，执行 `npm --prefix web run test:e2e`。测试框架自动启动和关闭独立的 8089 服务（该端口需空闲），并拒绝正常运行库与其他网址。GitHub Actions 在独立 MySQL 服务上验证并上传网页 JAR。
+本机可加载已忽略的 `local/test-env.ps1` 设置测试参数。Linux 通过 `xvfb-run -a mvn verify` 验证保留的 Swing 测试。网页 E2E 使用 Playwright 的 headless Chromium，不依赖 computer use；首次运行需在 `web` 目录执行 `npx playwright install chromium` 安装测试浏览器；先用初始化脚本为测试库导入 `-Seed -WebDemo`，保持上述 CC_DB_*=CC_TEST_*，设置 `$env:CC_E2E_URL="http://127.0.0.1:8089"`，执行 `npm --prefix web run test:e2e`。测试框架自动启动和关闭独立的 8089 服务（该端口需空闲），并拒绝正常运行库与其他网址。GitHub Actions 在独立 MySQL 服务上验证并上传网页 JAR。
 
 分工边界和接口约定见 `WEB_CONTRACTS.md`；原桌面契约见 `CONTRACTS.md`。四个编码子智能体分别负责持久化、后端、网页前端和测试，统筹负责公共接口、装配、审查和发布。
