@@ -15,8 +15,17 @@ async function noHorizontalOverflow(page: import('@playwright/test').Page) {
   const dimensions = await page.evaluate(() => ({
     document: document.documentElement.scrollWidth,
     viewport: window.innerWidth,
+    overflowing: [...document.querySelectorAll<HTMLElement>('body *')]
+      .map(element => ({
+        name: `${element.tagName.toLowerCase()}${element.className && typeof element.className === 'string' ? `.${element.className.trim().replace(/\s+/g, '.')}` : ''}`,
+        right: element.getBoundingClientRect().right,
+        position: getComputedStyle(element).position,
+      }))
+      .filter(element => element.right > window.innerWidth + 1 && element.position !== 'fixed')
+      .map(element => `${element.name} right=${Math.round(element.right)}`),
   }))
-  expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport)
+  expect(dimensions.document, `Page overflow elements: ${dimensions.overflowing.join(', ')}`)
+    .toBeLessThanOrEqual(dimensions.viewport)
 }
 
 test('student recovers from login error, manages the card, filters and exports records, and renews navigation on login', async ({ page }, testInfo) => {
@@ -71,15 +80,32 @@ test('student recovers from login error, manages the card, filters and exports r
   expect(csv).toContain(consumeDescription)
   expect(csv).not.toContain(rechargeDescription)
 
+  await navigation.getByRole('link', { name: '总览', exact: true }).click()
+  await expect(page.getByRole('heading', { name: /欢迎回来/ })).toBeVisible()
+  await page.setViewportSize({ width: 390, height: 844 })
+  const balanceCard = page.locator('.student-overview > .balance-card')
+  const balanceWidth = await balanceCard.evaluate(element => element.getBoundingClientRect().width)
+  const viewportWidth = await page.evaluate(() => window.innerWidth)
+  expect(balanceWidth).toBeGreaterThanOrEqual(viewportWidth * 0.85)
+  const menu = page.locator('.sidebar')
+  await expect(menu).not.toHaveClass(/sidebar-open/)
+  await expect(navigation).not.toBeInViewport()
+  await page.getByRole('button', { name: '打开菜单' }).click()
+  await expect(menu).toHaveClass(/sidebar-open/)
+  await expect(navigation).toBeInViewport()
+  await navigation.getByRole('link', { name: '我的校园卡', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '我的校园卡' })).toBeVisible()
+  await expect(menu).not.toHaveClass(/sidebar-open/)
+  await expect(navigation).not.toBeInViewport()
+  await noHorizontalOverflow(page)
+
+  await page.setViewportSize({ width: 1280, height: 900 })
   await page.getByRole('button', { name: '退出登录' }).click()
   await expect(page).toHaveURL(/\/login$/)
   await login(page, 'admin', 'admin123')
   await expect(page.getByRole('heading', { name: '校园运营总览' })).toBeVisible()
   await expect(navigation.getByRole('link', { name: '用户管理', exact: true })).toBeVisible()
   await expect(navigation.getByRole('link', { name: '我的校园卡', exact: true })).toHaveCount(0)
-
-  await page.setViewportSize({ width: 390, height: 844 })
-  await noHorizontalOverflow(page)
 })
 
 test('administrator can create, edit, disable, filter, and re-enable a user responsively', async ({ page }) => {
@@ -110,7 +136,7 @@ test('administrator can create, edit, disable, filter, and re-enable a user resp
   await page.getByLabel('姓名').fill('E2E Updated')
   await page.getByLabel('学号').fill(`EDIT-${suffix}`)
   await page.getByRole('dialog').getByRole('button', { name: '保存用户' }).click()
-  await expect(page.getByText('E2E Updated')).toBeVisible()
+  await expect(row.getByText('E2E Updated', { exact: true })).toBeVisible()
 
   await row.getByRole('button', { name: '停用' }).click()
   await expect(page.getByRole('alertdialog')).toBeVisible()

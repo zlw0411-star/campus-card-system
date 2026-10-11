@@ -8,15 +8,15 @@ START TRANSACTION;
 -- unused before this import. They gate both card creation and demo history.
 DROP TEMPORARY TABLE IF EXISTS tmp_campus_web_demo_candidates;
 CREATE TEMPORARY TABLE tmp_campus_web_demo_candidates (
-  username VARCHAR(50) NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  full_name VARCHAR(100) NOT NULL,
-  student_no VARCHAR(30) NOT NULL,
-  card_no VARCHAR(32) NOT NULL,
+  username VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  password_hash VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  full_name VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  student_no VARCHAR(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  card_no VARCHAR(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   PRIMARY KEY (username),
   UNIQUE KEY uq_tmp_web_demo_student_no (student_no),
   UNIQUE KEY uq_tmp_web_demo_card_no (card_no)
-) ENGINE=MEMORY;
+) ENGINE=MEMORY DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 INSERT INTO tmp_campus_web_demo_candidates(username,password_hash,full_name,student_no,card_no)
 VALUES
