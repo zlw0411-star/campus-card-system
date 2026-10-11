@@ -6,3 +6,8 @@ config/application.properties
 .vscode/
 *.iml
 local/
+
+**/node_modules/
+web/dist/
+web/test-results/
+web/playwright-report/

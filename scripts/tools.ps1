@@ -22,3 +22,7 @@ function Get-TaskMySql {
     if ($env:MYSQL_HOME) { $candidates = @((Join-Path $env:MYSQL_HOME 'bin/mysql.exe')) + $candidates }
     Find-TaskTool 'mysql' $candidates
 }
+
+function Get-TaskNpm {
+    Find-TaskTool 'npm.cmd' @('E:\nodejs\npm.cmd')
+}

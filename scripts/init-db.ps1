@@ -1,4 +1,4 @@
-param([string]$HostName='127.0.0.1',[int]$Port=3306,[string]$User='root',[string]$Database='campus_card',[switch]$Seed,[switch]$PromptPassword)
+param([string]$HostName='127.0.0.1',[int]$Port=3306,[string]$User='root',[string]$Database='campus_card',[switch]$Seed,[switch]$WebDemo,[switch]$PromptPassword)
 . "$PSScriptRoot/tools.ps1"
 if ($Database -notmatch '^[A-Za-z0-9_]+$') { throw 'Database name must contain only letters, digits and underscore.' }
 $mysql = Get-TaskMySql
@@ -14,4 +14,8 @@ if ($Seed) {
     Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $ProjectRoot 'database/seed.sql') | & $mysql @arguments "--database=$Database"
     if ($LASTEXITCODE -ne 0) { throw 'Seed initialization failed.' }
 }
-Write-Output "Initialized $Database. Seed=$Seed"
+if ($WebDemo) {
+    Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $ProjectRoot 'database/demo-web.sql') | & $mysql @arguments "--database=$Database"
+    if ($LASTEXITCODE -ne 0) { throw 'Optional web demo initialization failed.' }
+}
+Write-Output "Initialized $Database. Seed=$Seed WebDemo=$WebDemo"

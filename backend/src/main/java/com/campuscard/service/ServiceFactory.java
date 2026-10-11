@@ -261,7 +261,8 @@ public final class ServiceFactory {
                 Principal p = authorize(s, c, session);
                 if (!p.admin() && filter != null && filter.userId() != null && filter.userId() != p.user.id())
                     throw error("FORBIDDEN", "不能查询其他用户的流水");
-                return s.transactions.query(c, normalizedFilter(filter, p.admin() ? filter.userId() : p.user.id()));
+                return s.transactions.query(c, normalizedFilter(filter,
+                        p.admin() ? filter.userId() : Long.valueOf(p.user.id())));
             });
         }
 
@@ -271,7 +272,8 @@ public final class ServiceFactory {
                 Principal p = authorize(s, c, session);
                 if (!p.admin() && filter != null && filter.userId() != null && filter.userId() != p.user.id())
                     throw error("FORBIDDEN", "不能导出其他用户的流水");
-                TransactionFilter base = normalizedFilter(filter, p.admin() ? filter.userId() : p.user.id());
+                TransactionFilter base = normalizedFilter(filter,
+                        p.admin() ? filter.userId() : Long.valueOf(p.user.id()));
                 StringBuilder out = new StringBuilder("\uFEFF");
                 csvRow(out, "流水编号", "用户编号", "用户名", "姓名", "类型", "金额", "变更前余额", "变更后余额", "说明", "操作人编号", "操作编号", "时间");
                 int page = 1;

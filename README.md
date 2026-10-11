@@ -1,56 +1,70 @@
-# 校园卡管理系统
+# 青禾校园卡管理系统
 
-Java 17 + Swing + JDBC DAO + MySQL 8.0 的桌面应用，包含用户与管理员两个入口。
+Vue 3 + TypeScript + Spring Boot 4 的中文网页系统，MySQL 保存用户、校园卡和交易流水。学生可查看余额、模拟充值消费、查询和导出交易；管理员可开户、编辑用户、启停账户并查看统计。
 
-## 功能
+![学生总览](docs/screenshots/dashboard.png)
 
-- 用户：登录、余额查询、模拟充值与消费、记录筛选分页、CSV 导出、修改密码。
-- 管理员：开户、用户资料修改与启停、全站交易查询、余额及期间充值消费统计。
-- 同一事务更新余额和流水，行锁避免并发超额消费，操作编号避免重复提交。
+## 启动
 
-## 运行
-
-需要 JDK 17、Maven 3.9 和 MySQL 8.0。Windows 脚本优先读取 PATH 及 JAVA_HOME/MAVEN_HOME/MYSQL_HOME，同时支持本机 E 盘已有安装位置。
-
-1. 初始化独立数据库：`powershell -ExecutionPolicy Bypass -File scripts/init-db.ps1 -Seed`。有密码的数据库账号加 `-PromptPassword`；可指定 `-HostName`、`-Port`、`-User`、`-Database`。
-2. 复制 `config/application.example.properties` 为 `config/application.properties`，填写应用数据库账号、密码及 URL。也可使用环境变量 `CC_DB_URL`、`CC_DB_USER`、`CC_DB_PASSWORD`，其优先级更高。
-3. 构建：`powershell -ExecutionPolicy Bypass -File scripts/build.ps1`。
-4. 连接检查：`powershell -ExecutionPolicy Bypass -File scripts/start.ps1 -CheckDatabase`。
-5. 启动：`powershell -ExecutionPolicy Bypass -File scripts/start.ps1`。
-
-本机网络若无法访问 Maven Central，可使用 `scripts/build.ps1 -UseMirror`，或 Maven 加 `-s config/maven-settings-mirror.xml`，显式选择阿里云镜像。
-
-跨平台可执行 `mvn -B package`，再从项目根目录执行 `java -Dfile.encoding=UTF-8 -jar frontend/target/campus-card-system.jar`。配置文件支持 `-Dcampus.config=/absolute/path/application.properties`。
-
-显式导入种子数据后，示例管理员为 `admin / admin123`，用户为 `student / student123`，学生初始余额为 100 元并存在对应充值流水。种子仅用于本地功能体验；充值消费不接入真实支付。管理员通过用户管理创建更多普通用户。
-
-## 结构
-
-`common` 定义模型和公共接口；`backend` 实现业务、安全及 JDBC DAO；`frontend` 提供 Swing 界面；`database` 提供幂等建表与可选种子脚本。管理员账号不持有校园卡，普通用户一人一卡，停用保留流水。
-
-金额使用 BigDecimal/DECIMAL(12,2)，最多两位小数。日期按上海时区处理，结束日期包含当天。统计用户数仅包含普通用户，总余额包含停用用户，日期范围只限制交易统计。
-
-提交失败且结果未确认时请使用原操作的恢复/重试入口，避免重复发起新交易。界面重新登录后不会展示旧会话异步结果。
-
-## 测试
-
-`mvn -B verify` 执行单元测试与 Swing 会话测试。真实 MySQL 集成测试需设置：
+需要 Java 17+、Maven 3.9+、Node.js 24 LTS 和 MySQL 8.0。
 
 ```powershell
-$env:CC_TEST_DB_URL = 'jdbc:mysql://127.0.0.1:3306/campus_card_test?connectionTimeZone=Asia/Shanghai&allowPublicKeyRetrieval=true'
-$env:CC_TEST_DB_USER = 'your-test-user'
-$env:CC_TEST_DB_PASSWORD = 'your-test-password'
-mvn -B verify
+# 初始化本地数据库和示例账户；-WebDemo 可选，用于体验真实示例流水
+powershell -ExecutionPolicy Bypass -File scripts/init-db.ps1 -Seed -WebDemo
+# 复制 config/application.example.properties 为 config/application.properties 并填写数据库连接
+powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -UseMirror
+powershell -ExecutionPolicy Bypass -File scripts/start.ps1 -Background
 ```
 
-先使用 `scripts/init-db.ps1 -Database campus_card_test` 创建测试库，并给予测试账号建表、修改与清理测试数据的权限。测试会自动应用 schema 和 seed，并重建测试夹具。数据库名必须为 `campus_card_test` 或以 `_test` 结尾，禁止指向正常运行数据库。未设置测试 URL 时数据库集成测试跳过；配置后连接失败必须使测试失败。
+浏览器打开 http://127.0.0.1:8088 。停止服务使用 `scripts/stop.ps1`。不加 `-Background` 则在终端运行。端口可用 `-Port` 指定，默认仅监听本机。
 
-Linux 无桌面环境时使用 `xvfb-run -a mvn -B verify`。GitHub Actions 提供独立 MySQL 8.0 服务，并上传可运行 JAR，进入仓库 Actions 的成功任务后可下载 `campus-card-system` artifact。测试报告位于各模块 `target/surefire-reports/`。
+数据库账号有密码时初始化加 `-PromptPassword`，支持 `-HostName/-Port/-User/-Database`。真实数据库配置不提交 Git。环境变量 `CC_DB_URL/CC_DB_USER/CC_DB_PASSWORD` 优先于外置配置，配置文件路径可通过 `-Dcampus.config=绝对路径` 指定。运行账号仅需 SELECT/INSERT/UPDATE，初始化使用具有建表权限的独立账号。
 
-本机已配置独立运行库和测试库；测试凭据保存在被忽略的 `local/test-env.ps1`，可执行 `. ./local/test-env.ps1` 后运行验证。
+示例：`admin / admin123`、`student / student123`；导入 `-WebDemo` 后可用 `demo2026 / student123` 体验七天交易趋势。示例余额通过真实充值消费流水形成，脚本重复导入不重复记账。此系统模拟资金操作，不接入真实支付。
 
-## 协作
+## 构建与开发
 
-四个编码子智能体分别只负责数据持久化、业务逻辑、Swing 界面和测试代码；统筹负责公共契约、装配与审查。目录所有权及接口约定见 CONTRACTS.md。
+网页资源打包到 `server/target/campus-card-web.jar`，无需独立部署前端。跨平台从项目根目录执行：
 
-本地数据库密码、配置文件、日志和构建缓存均被 Git 忽略。可运行 JAR 位于 `frontend/target/campus-card-system.jar`。
+```sh
+npm --prefix web ci
+npm --prefix web run build
+mvn -B -ntp package
+java -Dfile.encoding=UTF-8 -jar server/target/campus-card-web.jar
+```
+
+Maven Central 不可用时加 `-s config/maven-settings-mirror.xml`。开发时后端运行于 8088，`npm --prefix web run dev` 启动 5178 的前端，Vite 代理 `/api`。前后端同源使用 HttpOnly Session Cookie 和 CSRF，不在浏览器存储登录令牌。
+
+## 工程
+
+| 目录 | 职责 |
+| --- | --- |
+| common | 实体、业务接口和公共 DTO |
+| backend | 业务、PBKDF2 密码处理、JDBC DAO 与事务 |
+| server | Spring Boot REST、Spring Security、HikariCP 和网页资源 |
+| web | Vue 3、TypeScript、Pinia、Vue Router、Vite、Lucide 图标与自定义样式 |
+| database | 建表、种子和可选网页演示数据 |
+| frontend | 保留的 Swing 桌面版 |
+
+初版保留于 `v1.0.0-swing` 标签。当前构建也生成 `frontend/target/campus-card-system.jar`，可用 `scripts/start-desktop.ps1` 运行。
+
+金额采用 BigDecimal 与 DECIMAL(12,2)，API 使用十进制字符串；必须为正数且最多两位小数。余额更新与流水插入在同一事务中完成，按用户→卡片顺序加锁；唯一操作编号防止重复提交。网络故障时界面保留原请求，先查询结果再用同一编号重试。管理员不能直接修改余额；停用保留卡片和历史。日期按上海时区解释，结束日期包含当天。
+
+## 后台测试
+
+测试使用单独的 `campus_card_test` 或其他以 `_test` 结尾的数据库，绝不能使用运行库。先初始化测试库并提供测试账号建表和清理权限。未配置测试库时数据库测试跳过；配置后连接失败会使测试失败。
+
+```powershell
+$env:CC_TEST_DB_URL='jdbc:mysql://127.0.0.1:3306/campus_card_test?connectionTimeZone=Asia/Shanghai&allowPublicKeyRetrieval=true'
+$env:CC_TEST_DB_USER='test-user'
+$env:CC_TEST_DB_PASSWORD='test-password'
+$env:CC_DB_URL=$env:CC_TEST_DB_URL
+$env:CC_DB_USER=$env:CC_TEST_DB_USER
+$env:CC_DB_PASSWORD=$env:CC_TEST_DB_PASSWORD
+npm --prefix web test
+mvn -B -ntp verify
+```
+
+本机可加载已忽略的 `local/test-env.ps1` 设置测试参数。Linux 通过 `xvfb-run -a mvn verify` 验证保留的 Swing 测试。网页 E2E 使用 Playwright 的 headless Chromium，不依赖 computer use；先用初始化脚本为测试库导入 `-Seed -WebDemo`，保持上述 CC_DB_*=CC_TEST_*，设置 `$env:CC_E2E_URL="http://127.0.0.1:8089"`，执行 `npm --prefix web run test:e2e`。测试框架自动启动和关闭独立的 8089 服务（该端口需空闲），并拒绝正常运行库与其他网址。GitHub Actions 在独立 MySQL 服务上验证并上传网页 JAR。
+
+分工边界和接口约定见 `WEB_CONTRACTS.md`；原桌面契约见 `CONTRACTS.md`。四个编码子智能体分别负责持久化、后端、网页前端和测试，统筹负责公共接口、装配、审查和发布。
