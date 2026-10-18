@@ -7,22 +7,22 @@ function Find-TaskTool([string]$Name, [string[]]$Candidates) {
     throw "Cannot find $Name. Install it and set PATH or JAVA_HOME/MAVEN_HOME/MYSQL_HOME."
 }
 function Get-TaskJava {
-    $candidates = @('E:\JDK17\jdk-17.0.20.1+1\bin\java.exe')
+    $candidates = @()
     if ($env:JAVA_HOME) { $candidates = @((Join-Path $env:JAVA_HOME 'bin/java.exe')) + $candidates }
     Find-TaskTool 'java' $candidates
 }
 function Get-TaskMaven {
     if (-not $env:JAVA_HOME) { $env:JAVA_HOME = Split-Path -Parent (Split-Path -Parent (Get-TaskJava)) }
-    $candidates = @('E:\Maven\apache-maven-3.9.9\bin\mvn.cmd')
+    $candidates = @()
     if ($env:MAVEN_HOME) { $candidates = @((Join-Path $env:MAVEN_HOME 'bin/mvn.cmd')) + $candidates }
     Find-TaskTool 'mvn' $candidates
 }
 function Get-TaskMySql {
-    $candidates = @('E:\MySQL\mysql-8.0.39-winx64\bin\mysql.exe')
+    $candidates = @()
     if ($env:MYSQL_HOME) { $candidates = @((Join-Path $env:MYSQL_HOME 'bin/mysql.exe')) + $candidates }
     Find-TaskTool 'mysql' $candidates
 }
 
 function Get-TaskNpm {
-    Find-TaskTool 'npm.cmd' @('E:\nodejs\npm.cmd')
+    Find-TaskTool 'npm.cmd' @()
 }
